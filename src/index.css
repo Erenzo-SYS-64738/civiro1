@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+/* Custom styles for leaflet map container and custom animations */
+.leaflet-container {
+  font-family: inherit;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .7; transform: scale(1.05); }
+}
+
+.pulse-animation {
+  animation: pulse-slow 3s infinite ease-in-out;
+}
+

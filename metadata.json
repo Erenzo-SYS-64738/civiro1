@@ -1,0 +1,6 @@
+{
+  "name": "Civiro",
+  "description": "A collaborative platform for citizens to report civic issues, capture GPS locations, and track tickets on a live Map.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

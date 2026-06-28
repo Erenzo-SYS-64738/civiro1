@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default-deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow public read/write to departments collection for unauthenticated proxy operations
+    match /departments/{departmentName} {
+      allow read, write: if true;
+    }
+
+    // Allow public read/write to tickets collection for unauthenticated proxy operations
+    match /tickets/{ticketId} {
+      allow read, write: if true;
+    }
+  }
+}

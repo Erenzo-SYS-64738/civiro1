@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "Department": {
+      "title": "Department",
+      "description": "City department responsible for handling civic issues.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The name of the department" },
+        "trust_score": { "type": "integer", "description": "Trust score rating" },
+        "tickets_resolved_verified": { "type": "integer", "description": "Number of tickets verified by residents" },
+        "tickets_resolved_rejected": { "type": "integer", "description": "Number of tickets rejected by residents" }
+      },
+      "required": ["name", "trust_score", "tickets_resolved_verified", "tickets_resolved_rejected"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "Civic issue ticket reported by a resident.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique auto-generated ID" },
+        "photo_before_url": { "type": "string", "description": "Base64 encoded photo before repair" },
+        "photo_after_url": { "type": "string", "description": "Base64 encoded photo after repair" },
+        "description": { "type": "string", "description": "Detailed citizen description of the issue" },
+        "category": { "type": "string", "description": "Category: pothole, streetlight, garbage, water_leak" },
+        "severity": { "type": "integer", "description": "Urgency rating from 1 to 10" },
+        "department": { "type": "string", "description": "Assigned department" },
+        "status": { "type": "string", "description": "Status: Open, Resolved Claimed, Verified Resolved, Reopened" },
+        "lat": { "type": "number", "description": "Latitude coordinate" },
+        "lng": { "type": "number", "description": "Longitude coordinate" },
+        "created_at": { "type": "string", "description": "Timestamp of report creation" },
+        "resolved_claimed_at": { "type": "string", "description": "Timestamp when repair claimed" },
+        "reasoning_log": { "type": "array", "description": "List of decision steps and actions" },
+        "trust_impact": { "type": "integer", "description": "Trust impact on the department" }
+      },
+      "required": ["photo_before_url", "description", "category", "severity", "department", "status", "lat", "lng", "created_at", "reasoning_log"]
+    }
+  },
+  "firestore": {
+    "departments/{departmentName}": {
+      "schema": "Department",
+      "description": "Statistics and trust rating of various municipal service departments."
+    },
+    "tickets/{ticketId}": {
+      "schema": "Ticket",
+      "description": "The reported civic issues."
+    }
+  }
+}
