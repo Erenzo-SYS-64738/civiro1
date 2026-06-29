@@ -271,7 +271,7 @@ export default function HomeScreen({
             <Shield size={32} className="text-blue-200" />
             <h2 className="text-3xl font-bold tracking-tight">Need Urgent Public Service?</h2>
             <p className="text-blue-100 text-sm sm:text-base leading-relaxed">
-              Civiro is designed for reporting non-emergency public works, local repairs, and neighborhood maintenance issues. If there is an immediate emergency endangering public health or lives (such as a structural fire, gas leak, or crime in progress), please dial <strong>911</strong> or contact emergency dispatch directly.
+              Civiro is designed for reporting non-emergency public works, local repairs, and neighborhood maintenance issues. If there is an immediate emergency endangering public health or lives (such as a structural fire, gas leak, or crime in progress), please dial <strong>112</strong> or contact emergency dispatch directly.
             </p>
           </div>
         </div>

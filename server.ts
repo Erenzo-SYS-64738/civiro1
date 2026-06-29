@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import { rateLimit } from 'express-rate-limit';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { initializeApp } from 'firebase/app';
@@ -105,12 +106,33 @@ app.get('/api/tickets', async (req, res) => {
 });
 
 // Create a new ticket
-app.post('/api/tickets', async (req, res) => {
+const ticketLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many requests, please try again shortly',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post('/api/tickets', ticketLimiter, async (req, res) => {
   try {
     const { description, photo_before_url, lat, lng } = req.body;
 
-    if (!description || !photo_before_url || lat === undefined || lng === undefined) {
-      return res.status(400).json({ error: 'Missing required fields: description, photo_before_url, lat, and lng are required.' });
+    if (!description || description.trim().length < 3) {
+      return res.status(400).json({ error: 'Description is required and must be at least 3 characters.' });
+    }
+    if (!photo_before_url || lat === undefined || lng === undefined) {
+      return res.status(400).json({ error: 'Missing required fields: photo_before_url, lat, and lng are required.' });
+    }
+
+    // Image size check
+    let base64Data = photo_before_url;
+    if (photo_before_url.startsWith('data:')) {
+      base64Data = photo_before_url.split(',')[1];
+    }
+    const sizeInBytes = (base64Data.length * 3) / 4;
+    if (sizeInBytes > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Image file size exceeds the 2MB limit.' });
     }
 
     if (!db) {
@@ -132,11 +154,10 @@ app.post('/api/tickets', async (req, res) => {
       try {
         reasoning_log.push(`[${actionTime}] Submitting image and description to Gemini-3.1-Flash-Lite for multi-stage function calling analysis.`);
         
-        let base64Data = photo_before_url;
         let mimeType = 'image/jpeg';
         if (photo_before_url.startsWith('data:')) {
           const parts = photo_before_url.split(',');
-          base64Data = parts[1];
+          // base64Data is already defined above, but we need the correct part
           const mimeMatch = parts[0].match(/data:(.*?);/);
           if (mimeMatch) {
             mimeType = mimeMatch[1];
