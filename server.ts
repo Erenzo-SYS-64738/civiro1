@@ -5,7 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, setDoc, getDoc, query, orderBy } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, setDoc, getDoc, query, orderBy, limit } from 'firebase/firestore';
 import { Ticket, Department } from './src/types';
 
 const app = express();
@@ -92,7 +92,7 @@ app.get('/api/tickets', async (req, res) => {
       return res.status(500).json({ error: 'Firestore is not initialized.' });
     }
     const ticketsCol = collection(db, 'tickets');
-    const q = query(ticketsCol, orderBy('created_at', 'desc'));
+    const q = query(ticketsCol, orderBy('created_at', 'desc'), limit(100));
     const snapshot = await getDocs(q);
     const tickets: Ticket[] = [];
     snapshot.forEach((docSnap) => {
@@ -230,7 +230,7 @@ app.post('/api/tickets', ticketLimiter, async (req, res) => {
         ];
 
         let loopCount = 0;
-        while (loopCount < 5) {
+        while (loopCount < 3) {
           const modelResponse = await ai.models.generateContent({
             model: 'gemini-3.1-flash-lite',
             contents: contents,
@@ -406,13 +406,31 @@ app.post('/api/tickets', ticketLimiter, async (req, res) => {
 });
 
 // Mark ticket as resolved by department (claims resolution) and triggers Autonomous Verification Agent
-app.post('/api/tickets/:id/resolve', async (req, res) => {
+const resolveLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: 'Too many requests, please try again shortly',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post('/api/tickets/:id/resolve', resolveLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { photo_after_url } = req.body;
 
     if (!photo_after_url) {
       return res.status(400).json({ error: 'Photo verification is required to claim resolution.' });
+    }
+
+    // Image size check (max 2MB)
+    let base64AfterData = photo_after_url;
+    if (photo_after_url.startsWith('data:')) {
+      base64AfterData = photo_after_url.split(',')[1];
+    }
+    const sizeInBytes = (base64AfterData.length * 3) / 4;
+    if (sizeInBytes > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Image file size exceeds the 2MB limit.' });
     }
 
     if (!db) {
@@ -528,7 +546,7 @@ app.post('/api/tickets/:id/resolve', async (req, res) => {
         let reasoning = '';
         let hasDecision = false;
 
-        while (loopCount < 5) {
+        while (loopCount < 3) {
           const modelResponse = await ai.models.generateContent({
             model: 'gemini-3.1-flash-lite',
             contents: contents,
