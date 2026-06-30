@@ -16,5 +16,10 @@ service cloud.firestore {
     match /tickets/{ticketId} {
       allow read, write: if true;
     }
+
+    // Allow public read/write to system_config collection for server proxy usage tracking
+    match /system_config/{configId} {
+      allow read, write: if true;
+    }
   }
 }

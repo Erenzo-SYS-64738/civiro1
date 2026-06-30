@@ -83,6 +83,64 @@ async function seedDepartmentsIfNeeded() {
 // Call seed departments on launch
 seedDepartmentsIfNeeded();
 
+/**
+ * Checks if the global daily Gemini API limit of 150 is reached.
+ * If the date in Firestore does not match today's date, it resets the call_count to 0.
+ * Returns true if limit is exceeded, false otherwise.
+ */
+async function checkDailyLimitExceeded(): Promise<boolean> {
+  if (!db) {
+    return false;
+  }
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const docRef = doc(db, 'system_config', 'api_usage');
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      await setDoc(docRef, { call_count: 0, date: todayStr });
+      return false;
+    }
+
+    const data = docSnap.data();
+    if (data.date !== todayStr) {
+      await setDoc(docRef, { call_count: 0, date: todayStr });
+      return false;
+    }
+
+    return data.call_count >= 150;
+  } catch (err) {
+    console.error("Error checking daily API usage cap:", err);
+    return false;
+  }
+}
+
+/**
+ * Increments the daily Gemini API call counter.
+ */
+async function incrementDailyUsage(): Promise<void> {
+  if (!db) return;
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const docRef = doc(db, 'system_config', 'api_usage');
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      await setDoc(docRef, { call_count: 1, date: todayStr });
+      return;
+    }
+
+    const data = docSnap.data();
+    if (data.date !== todayStr) {
+      await setDoc(docRef, { call_count: 1, date: todayStr });
+    } else {
+      await updateDoc(docRef, { call_count: data.call_count + 1 });
+    }
+  } catch (err) {
+    console.error("Error incrementing daily API usage:", err);
+  }
+}
+
 // API Routes
 
 // Get all tickets
@@ -152,6 +210,14 @@ app.post('/api/tickets', ticketLimiter, async (req, res) => {
     // AI Classification
     if (ai) {
       try {
+        const isLimitExceeded = await checkDailyLimitExceeded();
+        if (isLimitExceeded) {
+          reasoning_log.push('Daily AI processing limit reached for today — please try again tomorrow.');
+          throw new Error('Daily AI processing limit reached for today — please try again tomorrow.');
+        }
+
+        await incrementDailyUsage();
+
         reasoning_log.push(`[${actionTime}] Submitting image and description to Gemini-3.1-Flash-Lite for multi-stage function calling analysis.`);
         
         let mimeType = 'image/jpeg';
@@ -318,7 +384,9 @@ app.post('/api/tickets', ticketLimiter, async (req, res) => {
       } catch (geminiErr: any) {
         console.error('Gemini function calling failed, falling back to rule-based classification:', geminiErr);
         const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-        reasoning_log.push(`[${actionTime}] AI service error during function calling: ${errMsg}. Switched automatically to rule-based fallback classification.`);
+        if (errMsg !== 'Daily AI processing limit reached for today — please try again tomorrow.') {
+          reasoning_log.push(`[${actionTime}] AI service error during function calling: ${errMsg}. Switched automatically to rule-based fallback classification.`);
+        }
         
         if (hasAIClassification && hasAIDepartment) {
           reasoning_log.push(`[${actionTime}] Successfully preserved AI-agent classified category ('${category}'), department ('${department}'), and severity (${severity}) because function calls completed successfully prior to the error.`);
@@ -467,6 +535,14 @@ app.post('/api/tickets/:id/resolve', resolveLimiter, async (req, res) => {
     // Step 2: Trigger the Autonomous Verification Agent
     if (ai) {
       try {
+        const isLimitExceeded = await checkDailyLimitExceeded();
+        if (isLimitExceeded) {
+          updatedReasoning.push('Daily AI processing limit reached for today — please try again tomorrow.');
+          throw new Error('Daily AI processing limit reached for today — please try again tomorrow.');
+        }
+
+        await incrementDailyUsage();
+
         const actionTimeVerification = new Date().toLocaleTimeString();
         updatedReasoning.push(`[${actionTimeVerification}] Submitting before & after images to Gemini-3.1-Flash-Lite for autonomous verification.`);
         
@@ -667,7 +743,11 @@ app.post('/api/tickets/:id/resolve', resolveLimiter, async (req, res) => {
         console.error('Autonomous verification failed:', geminiErr);
         const actionTimeResult = new Date().toLocaleTimeString();
         const errMsg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-        updatedReasoning.push(`[${actionTimeResult}] Autonomous Verification Agent error: ${errMsg}. Reopening ticket under zero-trust verification policy.`);
+        if (errMsg === 'Daily AI processing limit reached for today — please try again tomorrow.') {
+          updatedReasoning.push(`[${actionTimeResult}] Daily AI processing limit reached. Reopening ticket under zero-trust verification policy.`);
+        } else {
+          updatedReasoning.push(`[${actionTimeResult}] Autonomous Verification Agent error: ${errMsg}. Reopening ticket under zero-trust verification policy.`);
+        }
         currentStatus = 'Reopened';
         trustImpact = -5;
         

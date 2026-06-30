@@ -33,6 +33,16 @@
         "trust_impact": { "type": "integer", "description": "Trust impact on the department" }
       },
       "required": ["photo_before_url", "description", "category", "severity", "department", "status", "lat", "lng", "created_at", "reasoning_log"]
+    },
+    "ApiUsage": {
+      "title": "ApiUsage",
+      "description": "API usage counter to enforce daily caps.",
+      "type": "object",
+      "properties": {
+        "call_count": { "type": "integer", "description": "The number of Gemini API calls made today" },
+        "date": { "type": "string", "description": "The date for this counter in YYYY-MM-DD format" }
+      },
+      "required": ["call_count", "date"]
     }
   },
   "firestore": {
@@ -43,6 +53,10 @@
     "tickets/{ticketId}": {
       "schema": "Ticket",
       "description": "The reported civic issues."
+    },
+    "system_config/{configId}": {
+      "schema": "ApiUsage",
+      "description": "System configurations and global counters."
     }
   }
 }
